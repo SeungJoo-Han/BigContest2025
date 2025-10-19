@@ -1,10 +1,18 @@
 import pandas as pd
 import numpy as np
+import re
+import os
+
+def extract_score_from_category(text):
+    """'3_25-50%'와 같은 문자열에서 맨 앞 숫자만 추출합니다."""
+    if not isinstance(text, str):
+        return 0
+    match = re.match(r'^\d+', text)
+    return int(match.group(0)) if match else 0
 
 def create_features(df):
     """
-    보고서에서 제안된 파생 변수(피처)들을 생성합니다.
-    (기존 코드의 오류를 모두 수정한 최종 버전)
+    파생 변수(피처)들을 생성합니다.
 
     Args:
         df (pd.DataFrame): 병합된 원본 데이터프레임
@@ -12,36 +20,35 @@ def create_features(df):
     Returns:
         pd.DataFrame: 피처가 추가된 데이터프레임
     """
+
     print("피처 엔지니어링 시작...")
     df = df.copy()
     
     # 1. 날짜 관련 피처 처리
     # 'TA_YM'은 월별 데이터, 'OPEN_DT'는 개별 날짜 데이터입니다.
     df['TA_YM'] = pd.to_datetime(df['TA_YM'], format='%Y%m')
-<<<<<<< HEAD
     df['ARE_D'] = pd.to_datetime(df['ARE_D'], format='%Y%m%d', errors='coerce')
-=======
-    df['OPEN_DT'] = pd.to_datetime(df['OPEN_DT'], format='%Y%m%d', errors='coerce')
->>>>>>> 4e3b2bbf8d08961cd16e4c299e70e74d052af49b
-
-    # 데이터 정렬 (시계열 분석을 위해 필수)
     df = df.sort_values(by=['ENCODED_MCT', 'TA_YM']).reset_index(drop=True)
 
-    # 2. 업력(Business Age) 계산 (월 단위)
-    # (현재 년월 - 개업 년월)
-<<<<<<< HEAD
+    # 2. 업력(Business Age) 계산
     df['business_age'] = (df['TA_YM'].dt.year - df['ARE_D'].dt.year) * 12 + (df['TA_YM'].dt.month - df['ARE_D'].dt.month)
 
-    # 3. 동적 위기 지표 (모멘텀 및 변동성)
-    # 데이터셋 구성에 따라 실제 분석할 컬럼명을 명시합니다.
-    key_metrics = ['SLS_AMT', 'CUS_CNT', 'MCT_UE_CLN_REU_RAT'] 
-=======
-    df['business_age'] = (df['TA_YM'].dt.year - df['OPEN_DT'].dt.year) * 12 + (df['TA_YM'].dt.month - df['OPEN_DT'].dt.month)
+    # 3. 구간 변수 수치화
+    score_cols_map = {
+        'MCT_OPE_MS_CN': 'MCT_OPE_MS_CN_score', # 가맹점 운영개월수 구간
+        'RC_M1_SAA': 'RC_M1_SAA_score', # 1개월 매출액 구간
+        'RC_M1_TO_UE_CT': 'RC_M1_TO_UE_CT_score', # 1개월 매출건수 구간
+        'RC_M1_UE_CUS_CN': 'RC_M1_UE_CUS_CN_score', # 1개월 유니크 고객수 구간
+        'RC_M1_AV_NP_AT': 'RC_M1_AV_NP_AT_score', # 1개월 객단가 구간
+        'APV_CE_RAT': 'APV_CE_RAT_score' # 취소율 구간
+    }
+    for original_col, new_col in score_cols_map.items():
+        if original_col in df.columns:
+            df[new_col] = df[original_col].apply(extract_score_from_category)
 
-    # 3. 동적 위기 지표 (모멘텀 및 변동성)
+    # 4. 동적 위기 지표 (모멘텀 및 변동성)
     # 데이터셋 구성에 따라 실제 분석할 컬럼명을 명시합니다.
-    key_metrics = ['SLS_AMT', 'CUS_CNT', 'MCT_UE_CUN_REU_RAT'] 
->>>>>>> 4e3b2bbf8d08961cd16e4c299e70e74d052af49b
+    key_metrics = list(score_cols_map.values()) + ['DLV_SAA_RAT']
     periods = [1, 3, 6] # 성장률 및 시차를 계산할 기간 (월)
     windows = [3, 6] # 이동 통계를 계산할 기간 (월)
 
@@ -59,38 +66,36 @@ def create_features(df):
             df[f'{col}_rolling_mean_{w}m'] = rolling_window.mean().reset_index(0,drop=True)
             df[f'{col}_rolling_std_{w}m'] = rolling_window.std().reset_index(0,drop=True)
             
-        # 시차(Lag) 피처
-        for p in periods:
-            df[f'{col}_lag_{p}m'] = df.groupby('ENCODED_MCT')[col].shift(p)
 
-    # 4. 고객 행동 변화
-    # 재방문율(loyalty_ratio) 지표: MCT_UE_CUN_REU_RAT 컬럼을 직접 사용
-    if 'MCT_UE_CUN_REU_RAT' in df.columns:
-        df.rename(columns={'MCT_UE_CUN_REU_RAT': 'loyalty_ratio'}, inplace=True)
-        df['loyalty_ratio_change_1m'] = df.groupby('ENCODED_MCT')['loyalty_ratio'].pct_change(periods=1)
+    # 5. 고객 행동 변화 지표
+    customer_mix_cols = [
+        'MCT_UE_CLN_REU_RAT', 'MCT_UE_CLN_NEW_RAT',
+        'RC_M1_SHC_RSD_UE_CLN_RAT', 'RC_M1_SHC_WP_UE_CLN_RAT', 'RC_M1_SHC_FLP_UE_CLN_RAT'
+    ]
 
-    # 고객 1인당 매출액(객단가) 및 성장률 (이 부분은 기존 코드 유지)
-    df['sales_per_customer'] = df['SLS_AMT'] / (df['CUS_CNT'] + 1e-6)
-    df['sales_per_customer_growth_3m'] = df.groupby('ENCODED_MCT')['sales_per_customer'].pct_change(periods=3)
+    for col in customer_mix_cols:
+        if col not in df.columns: continue
+        # 각 구성 비율의 1개월, 3개월 전 대비 변화량
+        df[f'{col}_diff_1m'] = df.groupby('ENCODED_MCT')[col].diff(periods=1)
+        df[f'{col}_diff_3m'] = df.groupby('ENCODED_MCT')[col].diff(periods=3)
+        # 각 구성 비율의 최근 3개월간 변동성 (표준편차)
+        df[f'{col}_rolling_std_3m'] = df.groupby('ENCODED_MCT')[col].shift(1).rolling(3).std().reset_index(0,drop=True)
 
 
-    # 5. 동종 그룹 벤치마킹 (상대적 성과)
+    # 6. 동종 그룹 벤치마킹 (상대적 성과)
     # 먼저 각 가맹점의 1개월 매출 성장률을 계산합니다.
-    sales_growth_col = 'SLS_AMT_growth_1m'
-    if sales_growth_col not in df.columns:
-         df[sales_growth_col] = df.groupby('ENCODED_MCT')['SLS_AMT'].pct_change(periods=1)
+    score_col = 'RC_M1_SAA_score'
+    if score_col in df.columns:
+        # 지역(시군구) 내 동종 그룹의 평균 매출 성장률 대비
+        df['sigungu_avg_score'] = df.groupby(['MCT_SIGUNGU_NM', 'TA_YM'])[score_col].transform('mean')
+        df['peer_score_perf_sigungu'] = df[score_col] - df['sigungu_avg_score']
 
-    # 지역(시군구) 내 동종 그룹의 평균 매출 성장률 대비
-    df['sigungu_avg_sales_growth_1m'] = df.groupby(['SIGUNGU_CD', 'TA_YM'])[sales_growth_col].transform('mean')
-    df['peer_sales_perf_sigungu'] = df[sales_growth_col] - df['sigungu_avg_sales_growth_1m']
+        # 업종 내 동종 그룹의 평균 매출 성장률 대비
+        df['industry_avg_score'] = df.groupby(['HPSN_MCT_ZCD_NM', 'TA_YM'])[score_col].transform('mean')
+        df['peer_score_perf_industry'] = df[score_col] - df['industry_avg_score']
 
-    # 업종 내 동종 그룹의 평균 매출 성장률 대비
-    df['industry_avg_sales_growth_1m'] = df.groupby(['IND_CD', 'TA_YM'])[sales_growth_col].transform('mean')
-    df['peer_sales_perf_industry'] = df[sales_growth_col] - df['industry_avg_sales_growth_1m']
-
-    # 6. 무한대 값(inf) 및 결측값(NaN) 처리
+    # 7. 무한대 값 처리
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    # 모델링 단계에서 결측값을 채우거나(fillna), 해당 행을 제거할 수 있습니다.
 
     print(f"피처 엔지니어링 완료. 총 {df.shape[1]}개의 피처 생성.")
     return df
@@ -100,9 +105,10 @@ if __name__ == '__main__':
     # 실제 환경에 맞게 파일 경로를 수정해야 합니다.
     try:
         from data_loader import load_and_merge_data # data_loader.py가 같은 폴더에 있다고 가정
-        PATH_INFO = '../data/dataset1_info.csv'
-        PATH_SALES = '../data/dataset2_sales.csv'
-        PATH_CUSTOMER = '../data/dataset3_customer.csv'
+
+        PATH_INFO = "../data/big_data_set1_f.csv"
+        PATH_SALES = "../data/big_data_set2_f.csv"
+        PATH_CUSTOMER = "../data/big_data_set3_f.csv"
         
         abt = load_and_merge_data(PATH_INFO, PATH_SALES, PATH_CUSTOMER)
         featured_df = create_features(abt)
@@ -113,11 +119,14 @@ if __name__ == '__main__':
         print("\n생성된 피처 샘플 (성장률):")
         print(featured_df.filter(like='_growth_').head())
 
-        print("\n생성된 피처 샘플 (동종그룹 비교):")
-        print(featured_df[['ENCODED_MCT', 'TA_YM', 'peer_sales_perf_sigungu', 'peer_sales_perf_industry']].head())
+        # 생성된 데이터프레임을 CSV 파일로 저장 (★★핵심 기능 추가★★)
+        output_dir = 'E:/BigContest2025-main/data'
+        os.makedirs(output_dir, exist_ok=True) # 폴더가 없으면 생성
+        output_path = os.path.join(output_dir, 'featured_data.csv')
+        featured_df.to_csv(output_path, index=False, encoding='utf-8-sig')
 
     except FileNotFoundError as e:
         print(f"오류: 파일을 찾을 수 없습니다. 경로를 확인해주세요. ({e})")
     except ImportError:
-        print("오류: 'data_loader.py' 파일을 찾을 수 없습니다. 같은 폴더에 위치시켜 주세요.")
+        print("오류: 'data_loader.py' 파일을 찾을 수 없습니다.")
 
