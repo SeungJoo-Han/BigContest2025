@@ -15,9 +15,15 @@ def load_and_merge_data(path_info, path_sales, path_customer):
     """
     print("데이터 로딩 시작...")
     # 데이터 로드
+<<<<<<< HEAD
     info_df = pd.read_csv(path_info, encoding='cp949')
     sales_df = pd.read_csv(path_sales, encoding='cp949')
     customer_df = pd.read_csv(path_customer, encoding='cp949')
+=======
+    info_df = pd.read_csv(path_info)
+    sales_df = pd.read_csv(path_sales)
+    customer_df = pd.read_csv(path_customer)
+>>>>>>> 4e3b2bbf8d08961cd16e4c299e70e74d052af49b
     print("데이터 로딩 완료.")
 
     # 결측치를 의미하는 특이값(-999999.9)을 NaN으로 변환
@@ -37,6 +43,7 @@ def load_and_merge_data(path_info, path_sales, path_customer):
 if __name__ == '__main__':
     # 예시 실행 코드
     # 실제 파일 경로로 수정해야 합니다.
+<<<<<<< HEAD
     PATH_INFO = 'E:/BigContest2025-main/data/big_data_set1_f.csv'
     PATH_SALES = 'E:/BigContest2025-main/data/big_data_set2_f.csv'
     PATH_CUSTOMER = 'E:/BigContest2025-main/data/big_data_set3_f.csv'
@@ -46,6 +53,11 @@ if __name__ == '__main__':
     ../data/big_data_set2_f.csv
     ../data/big_data_set3_f.csv
     '''
+=======
+    PATH_INFO = '../data/dataset1_info.csv'
+    PATH_SALES = '../data/dataset2_sales.csv'
+    PATH_CUSTOMER = '../data/dataset3_customer.csv'
+>>>>>>> 4e3b2bbf8d08961cd16e4c299e70e74d052af49b
 
     abt = load_and_merge_data(PATH_INFO, PATH_SALES, PATH_CUSTOMER)
     print("\n병합된 데이터프레임 정보:")

@@ -18,18 +18,30 @@ def create_features(df):
     # 1. 날짜 관련 피처 처리
     # 'TA_YM'은 월별 데이터, 'OPEN_DT'는 개별 날짜 데이터입니다.
     df['TA_YM'] = pd.to_datetime(df['TA_YM'], format='%Y%m')
+<<<<<<< HEAD
     df['ARE_D'] = pd.to_datetime(df['ARE_D'], format='%Y%m%d', errors='coerce')
+=======
+    df['OPEN_DT'] = pd.to_datetime(df['OPEN_DT'], format='%Y%m%d', errors='coerce')
+>>>>>>> 4e3b2bbf8d08961cd16e4c299e70e74d052af49b
 
     # 데이터 정렬 (시계열 분석을 위해 필수)
     df = df.sort_values(by=['ENCODED_MCT', 'TA_YM']).reset_index(drop=True)
 
     # 2. 업력(Business Age) 계산 (월 단위)
     # (현재 년월 - 개업 년월)
+<<<<<<< HEAD
     df['business_age'] = (df['TA_YM'].dt.year - df['ARE_D'].dt.year) * 12 + (df['TA_YM'].dt.month - df['ARE_D'].dt.month)
 
     # 3. 동적 위기 지표 (모멘텀 및 변동성)
     # 데이터셋 구성에 따라 실제 분석할 컬럼명을 명시합니다.
     key_metrics = ['SLS_AMT', 'CUS_CNT', 'MCT_UE_CLN_REU_RAT'] 
+=======
+    df['business_age'] = (df['TA_YM'].dt.year - df['OPEN_DT'].dt.year) * 12 + (df['TA_YM'].dt.month - df['OPEN_DT'].dt.month)
+
+    # 3. 동적 위기 지표 (모멘텀 및 변동성)
+    # 데이터셋 구성에 따라 실제 분석할 컬럼명을 명시합니다.
+    key_metrics = ['SLS_AMT', 'CUS_CNT', 'MCT_UE_CUN_REU_RAT'] 
+>>>>>>> 4e3b2bbf8d08961cd16e4c299e70e74d052af49b
     periods = [1, 3, 6] # 성장률 및 시차를 계산할 기간 (월)
     windows = [3, 6] # 이동 통계를 계산할 기간 (월)
 
