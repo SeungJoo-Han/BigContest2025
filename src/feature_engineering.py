@@ -28,6 +28,7 @@ def create_features(df):
     # 'TA_YM'은 월별 데이터, 'OPEN_DT'는 개별 날짜 데이터입니다.
     df['TA_YM'] = pd.to_datetime(df['TA_YM'], format='%Y%m')
     df['ARE_D'] = pd.to_datetime(df['ARE_D'], format='%Y%m%d', errors='coerce')
+    df['MCT_ME_D'] = pd.to_datetime(df['MCT_ME_D'], format='%Y%m%d', errors='coerce')
     df = df.sort_values(by=['ENCODED_MCT', 'TA_YM']).reset_index(drop=True)
 
     # 2. 업력(Business Age) 계산
@@ -101,10 +102,9 @@ def create_features(df):
     return df
 
 if __name__ == '__main__':
-    # 예시 실행 코드
     # 실제 환경에 맞게 파일 경로를 수정해야 합니다.
     try:
-        from data_loader import load_and_merge_data # data_loader.py가 같은 폴더에 있다고 가정
+        from data_loader import load_and_merge_data
 
         PATH_INFO = "../data/big_data_set1_f.csv"
         PATH_SALES = "../data/big_data_set2_f.csv"
@@ -119,9 +119,9 @@ if __name__ == '__main__':
         print("\n생성된 피처 샘플 (성장률):")
         print(featured_df.filter(like='_growth_').head())
 
-        # 생성된 데이터프레임을 CSV 파일로 저장 (★★핵심 기능 추가★★)
+        # 생성된 데이터프레임을 CSV 파일로 저장
         output_dir = 'E:/BigContest2025-main/data'
-        os.makedirs(output_dir, exist_ok=True) # 폴더가 없으면 생성
+        os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, 'featured_data.csv')
         featured_df.to_csv(output_path, index=False, encoding='utf-8-sig')
 
