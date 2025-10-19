@@ -120,7 +120,7 @@ if __name__ == '__main__':
         print(featured_df.filter(like='_growth_').head())
 
         # 생성된 데이터프레임을 CSV 파일로 저장
-        output_dir = 'E:/BigContest2025-main/data'
+        output_dir = '../BigContest2025-main/data'
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, 'featured_data.csv')
         featured_df.to_csv(output_path, index=False, encoding='utf-8-sig')
