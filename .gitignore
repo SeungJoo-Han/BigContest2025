@@ -1,0 +1,5 @@
+# Python 기본
+*.pyc
+src/__pycache__/
+*.pyo
+*.log
