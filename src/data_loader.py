@@ -37,9 +37,9 @@ def load_and_merge_data(path_info, path_sales, path_customer):
 if __name__ == '__main__':
     # 예시 실행 코드
     # 실제 파일 경로로 수정해야 합니다.
-    PATH_INFO = "../data/big_data_set1_f.csv"
-    PATH_SALES = "../data/big_data_set2_f.csv"
-    PATH_CUSTOMER = "../data/big_data_set3_f.csv"
+    PATH_INFO = "../BigContest2025-main/data/big_data_set1_f.csv"
+    PATH_SALES = "../BigContest2025-main/data/big_data_set2_f.csv"
+    PATH_CUSTOMER = "../BigContest2025-main/data/big_data_set3_f.csv"
 
     abt = load_and_merge_data(PATH_INFO, PATH_SALES, PATH_CUSTOMER)
     print("\n병합된 데이터프레임 정보:")

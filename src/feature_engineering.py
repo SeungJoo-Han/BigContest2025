@@ -106,10 +106,10 @@ if __name__ == '__main__':
     try:
         from data_loader import load_and_merge_data
 
-        PATH_INFO = "../data/big_data_set1_f.csv"
-        PATH_SALES = "../data/big_data_set2_f.csv"
-        PATH_CUSTOMER = "../data/big_data_set3_f.csv"
-        
+        PATH_INFO = "../BigContest2025-main/data/big_data_set1_f.csv"
+        PATH_SALES = "../BigContest2025-main/data/big_data_set2_f.csv"
+        PATH_CUSTOMER = "../BigContest2025-main/data/big_data_set3_f.csv"
+
         abt = load_and_merge_data(PATH_INFO, PATH_SALES, PATH_CUSTOMER)
         featured_df = create_features(abt)
         
