@@ -145,12 +145,14 @@ if __name__ == '__main__':
         TARGET = 'is_at_risk'
         # 모델이 학습할 수 없는 ID, 날짜, 문자열 컬럼 등 제외
         features_to_exclude = [
-            TARGET, 'ENCODED_MCT', 'MCT_NM', 'MCT_BSE_AR', 'MCT_BRD_NUM',
-            'TA_YM', 'ARE_D', 'MCT_ME_D',
-            'MCT_OPE_MS_CN', 'RC_M1_SAA', 'RC_M1_TO_UE_CT'
+            TARGET, 'ENCODED_MCT', 'MCT_BSE_AR', 'MCT_NM', 'MCT_BRD_NUM', 'ARE_D', 'MCT_ME_D', 
+            'TA_YM', 'MCT_OPE_MS_CN', 'RC_M1_SAA', 'RC_M1_TO_UE_CT', 
+            'RC_M1_UE_CUS_CN', 'RC_M1_AV_NP_AT', 'APV_CE_RAT',
         ]
+        #'MCT_SIGUNGU_NM', 'HPSN_MCT_ZCD_NM', 'HPSN_MCT_BZN_CD_NM'
+        
         # object 타입 컬럼 자동 제외
-        features_to_exclude.extend(final_df.select_dtypes(include='object').columns.tolist())
+        #features_to_exclude.extend(final_df.select_dtypes(include='object').columns.tolist())
         
         features = [col for col in final_df.columns if col not in features_to_exclude]
         
