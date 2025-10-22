@@ -55,12 +55,6 @@ def train_and_evaluate(X, y, n_splits=5):
     # 위험 클래스 가중치
     scale_pos_weight = y.value_counts()[0] / y.value_counts()[1]
     print(f"\n'scale_pos_weight'가 {scale_pos_weight:.2f}로 설정되었습니다.")
-    
-    # LightGBM이 인식할 수 있도록 범주형 피처를 'category' 타입으로 변환
-    categorical_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
-    for col in categorical_features:
-        X[col] = X[col].astype('category')
-    print(f"범주형 피처로 처리될 컬럼: {categorical_features}")
 
     # 시계열 교차 검증 설정
     tscv = TimeSeriesSplit(n_splits=n_splits)
@@ -69,32 +63,28 @@ def train_and_evaluate(X, y, n_splits=5):
 
     # LightGBM 모델 파라미터
     params = {
-              'objective': 'binary',
+        'objective': 'binary',
         'metric': 'average_precision',
-        'boosting_type': 'dart',
-        'n_estimators': 1500,          # 학습 횟수를 충분히 늘려 작은 학습률로도 최적점에 도달하도록 함
-        'learning_rate': 0.03,         # 학습률을 더 낮춰 매우 신중하게 학습 진행
-        'num_leaves': 25,              # 트리의 복잡도 증가 (기존 40 -> 60)
-        'max_depth': 6,               # 트리의 최대 깊이를 좀 더 허용하여 세밀한 패턴 학습
-        
-        'seed': 42,
+        'boosting_type': 'gbdt',
+        'n_estimators': 2000,          # 학습 횟수를 충분히 늘려 작은 학습률로도 최적점에 도달하도록 함
+        'learning_rate': 0.02,         # 학습률을 더 낮춰 매우 신중하게 학습 진행
+        'num_leaves': 40,              # 트리의 복잡도 증가 (기존 40 -> 60)
+        'max_depth': 7,               # 트리의 최대 깊이를 좀 더 허용하여 세밀한 패턴 학습
+        'min_child_samples': 30,       # 과적합 방지를 위해 리프 노드 샘플 수 조절
+        'subsample': 0.8,              # 데이터 샘플링 (과적합 방지)
+        'colsample_bytree': 0.8,       # 피처 샘플링 (과적합 방지)
+        'random_state': 42,
         'n_jobs': -1,
         'verbose': -1,
-        
-        # 과적합 방지 및 다양성 확보를 위한 파라미터
-        'colsample_bytree': 0.6,       # 트리마다 사용할 피처의 비율 (Feature Fraction)
-        'subsample': 0.6,              # 트리마다 사용할 데이터의 비율 (Bagging)
-        'reg_alpha': 0.3,              # L1 정규화
-        'reg_lambda': 0.3,             # L2 정규화
-
-        # --- [핵심] 모델이 학습을 포기하지 않도록 하는 설정 ---
+        'reg_alpha': 0.1,              # L1 정규화
+        'reg_lambda': 0.1,             # L2 정규화
         'scale_pos_weight': scale_pos_weight, # 불균형 데이터 처리
 
 
         # --- DART 전용 파라미터 ---
-        'drop_rate': 0.1,              # 각 반복에서 몇 %의 트리를 버릴지 결정
-        'skip_drop': 0.5,              # 50%의 확률로는 drop을 건너뛰어 속도와 안정성 확보
-        'max_drop': 50,                # 한 번에 버릴 수 있는 최대 트리 수    
+        #'drop_rate': 0.1,              # 각 반복에서 몇 %의 트리를 버릴지 결정
+        #'skip_drop': 0.5,              # 50%의 확률로는 drop을 건너뛰어 속도와 안정성 확보
+        #'max_drop': 50,                # 한 번에 버릴 수 있는 최대 트리 수    
         }
     
     for fold, (train_index, val_index) in enumerate(tscv.split(X)):
@@ -105,8 +95,6 @@ def train_and_evaluate(X, y, n_splits=5):
         
         model.fit(X_train, y_train,
                   eval_set=[(X_val, y_val)],
-                  callbacks=[lgb.early_stopping(100, verbose=False)],
-                  categorical_feature=categorical_features
                   )
 
         preds = model.predict(X_val)
@@ -121,7 +109,7 @@ def train_and_evaluate(X, y, n_splits=5):
     
     print("\n===== 전체 데이터로 최종 모델 학습 시작 =====")
     final_model = lgb.LGBMClassifier(**params)
-    final_model.fit(X, y, categorical_feature=categorical_features)
+    final_model.fit(X, y)
     print("===== 최종 모델 학습 완료 =====")
     
     # 모델 저장
@@ -142,7 +130,6 @@ if __name__ == '__main__':
         # 결측값이 있는 행 제거 (모델 학습 전 처리 필요)
         final_df.reset_index(drop=True, inplace=True)
         final_df = final_df.dropna(subset=['is_at_risk'])
-        final_df = final_df.fillna(0)
 
         # 타겟 변수 및 피처 분리
         TARGET = 'is_at_risk'
@@ -157,9 +144,6 @@ if __name__ == '__main__':
             'MCT_OPE_MS_CN', 'RC_M1_SAA', 'RC_M1_TO_UE_CT', 
             'RC_M1_UE_CUS_CN', 'RC_M1_AV_NP_AT', 'APV_CE_RAT',
         ]
-
-        # object 타입 컬럼 자동 제외
-        #features_to_exclude.extend(final_df.select_dtypes(include='object').columns.tolist())
         
         features = [col for col in final_df.columns if col not in features_to_exclude]
         
