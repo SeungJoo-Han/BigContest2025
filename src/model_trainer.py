@@ -40,7 +40,7 @@ def plot_feature_importance(model, feature_names, top_n=20):
 
 def train_and_evaluate(X, y, n_splits=5):
     """
-    LightGBM 모델을 학습하고 TimeSeriesSplit을 사용하여 평가합니다.
+사용하여 평가합니다.
     (기존 코드의 오류를 모두 수정한 최종 버전)
 
     Args:
@@ -69,7 +69,7 @@ def train_and_evaluate(X, y, n_splits=5):
 
     # LightGBM 모델 파라미터
     params = {
-        'objective': 'binary',
+              'objective': 'binary',
         'metric': 'average_precision',
         'boosting_type': 'dart',
         'n_estimators': 1500,          # 학습 횟수를 충분히 늘려 작은 학습률로도 최적점에 도달하도록 함
@@ -94,7 +94,7 @@ def train_and_evaluate(X, y, n_splits=5):
         # --- DART 전용 파라미터 ---
         'drop_rate': 0.1,              # 각 반복에서 몇 %의 트리를 버릴지 결정
         'skip_drop': 0.5,              # 50%의 확률로는 drop을 건너뛰어 속도와 안정성 확보
-        'max_drop': 50,                # 한 번에 버릴 수 있는 최대 트리 수 
+        'max_drop': 50,                # 한 번에 버릴 수 있는 최대 트리 수    
         }
     
     for fold, (train_index, val_index) in enumerate(tscv.split(X)):
