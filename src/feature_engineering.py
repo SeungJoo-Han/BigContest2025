@@ -47,10 +47,11 @@ def create_features(df):
         if original_col in df.columns:
             df[new_col] = df[original_col].apply(extract_score_from_category)
 
+    '''
     # 4. 동적 위기 지표 (모멘텀 및 변동성)
     # 데이터셋 구성에 따라 실제 분석할 컬럼명을 명시합니다.
     key_metrics = list(score_cols_map.values()) + ['DLV_SAA_RAT']
-    periods = [1, 3, 6] # 성장률 및 시차를 계산할 기간 (월)
+    periods = [1, 3] # 성장률 및 시차를 계산할 기간 (월)
     windows = [3, 6] # 이동 통계를 계산할 기간 (월)
 
     for col in key_metrics:
@@ -68,21 +69,7 @@ def create_features(df):
             df[f'{col}_rolling_std_{w}m'] = rolling_window.std().reset_index(0,drop=True)
             
 
-    # 5. 고객 행동 변화 지표
-    customer_mix_cols = [
-        'MCT_UE_CLN_REU_RAT', 'MCT_UE_CLN_NEW_RAT',
-        'RC_M1_SHC_RSD_UE_CLN_RAT', 'RC_M1_SHC_WP_UE_CLN_RAT', 'RC_M1_SHC_FLP_UE_CLN_RAT'
-    ]
-
-    for col in customer_mix_cols:
-        if col not in df.columns: continue
-        # 각 구성 비율의 1개월, 3개월 전 대비 변화량
-        df[f'{col}_diff_1m'] = df.groupby('ENCODED_MCT')[col].diff(periods=1)
-        df[f'{col}_diff_3m'] = df.groupby('ENCODED_MCT')[col].diff(periods=3)
-        # 각 구성 비율의 최근 3개월간 변동성 (표준편차)
-        df[f'{col}_rolling_std_3m'] = df.groupby('ENCODED_MCT')[col].shift(1).rolling(3).std().reset_index(0,drop=True)
-
-
+    
     # 6. 동종 그룹 벤치마킹 (상대적 성과)
     # 먼저 각 가맹점의 1개월 매출 성장률을 계산합니다.
     score_col = 'RC_M1_SAA_score'
@@ -94,6 +81,21 @@ def create_features(df):
         # 업종 내 동종 그룹의 평균 매출 성장률 대비
         df['industry_avg_score'] = df.groupby(['HPSN_MCT_ZCD_NM', 'TA_YM'])[score_col].transform('mean')
         df['peer_score_perf_industry'] = df[score_col] - df['industry_avg_score']
+    '''
+    
+    # 5. 고객 행동 변화 지표
+    customer_mix_cols = [
+        'MCT_UE_CLN_REU_RAT', 'MCT_UE_CLN_NEW_RAT',
+        'RC_M1_SHC_RSD_UE_CLN_RAT', 'RC_M1_SHC_WP_UE_CLN_RAT', 'RC_M1_SHC_FLP_UE_CLN_RAT'
+    ]
+
+    for col in customer_mix_cols:
+        if col not in df.columns: continue
+        # 각 구성 비율의 n개월 전 대비 변화량
+        for n in [3, 6, 12]:
+            df[f'{col}_diff_{n}m'] = df.groupby('ENCODED_MCT')[col].diff(periods=n)
+        # 각 구성 비율의 최근 3개월간 변동성 (표준편차)
+        # df[f'{col}_rolling_std_3m'] = df.groupby('ENCODED_MCT')[col].shift(1).rolling(3).std().reset_index(0,drop=True)
 
     # 7. 무한대 값 처리
     df.replace([np.inf, -np.inf], np.nan, inplace=True)

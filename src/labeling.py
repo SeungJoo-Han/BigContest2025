@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 
-def create_target_label(df, look_ahead_start=1, look_ahead_end=12):
+def create_target_label(df, look_ahead_start=1, look_ahead_end=6):
     """
     복합적인 위기 정의에 따라 타겟 변수(is_at_risk)를 생성합니다.
     위기 발생 1~3개월 전 시점을 위험(1)으로 레이블링합니다.
