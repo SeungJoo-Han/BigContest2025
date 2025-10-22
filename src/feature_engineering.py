@@ -46,56 +46,24 @@ def create_features(df):
     for original_col, new_col in score_cols_map.items():
         if original_col in df.columns:
             df[new_col] = df[original_col].apply(extract_score_from_category)
-
-    # 4. 동적 위기 지표 (모멘텀 및 변동성)
-    # 데이터셋 구성에 따라 실제 분석할 컬럼명을 명시합니다.
-    key_metrics = list(score_cols_map.values()) + ['DLV_SAA_RAT']
-    periods = [1, 3, 6] # 성장률 및 시차를 계산할 기간 (월)
-    windows = [3, 6] # 이동 통계를 계산할 기간 (월)
-
-    for col in key_metrics:
-        if col not in df.columns:
-            continue # 데이터에 해당 컬럼이 없으면 건너뛰기
-            
-        # 성장률 (변화율)
-        for p in periods:
-            df[f'{col}_growth_{p}m'] = df.groupby('ENCODED_MCT')[col].pct_change(periods=p)
-        
-        # 이동 통계 (평균, 표준편차) - 현재를 제외한 과거 데이터로 계산하기 위해 shift(1) 사용
-        for w in windows:
-            rolling_window = df.groupby('ENCODED_MCT')[col].shift(1).rolling(window=w)
-            df[f'{col}_rolling_mean_{w}m'] = rolling_window.mean().reset_index(0,drop=True)
-            df[f'{col}_rolling_std_{w}m'] = rolling_window.std().reset_index(0,drop=True)
-            
-
-    # 5. 고객 행동 변화 지표
+    
+    # 4. 고객 행동 변화 지표
     customer_mix_cols = [
         'MCT_UE_CLN_REU_RAT', 'MCT_UE_CLN_NEW_RAT',
         'RC_M1_SHC_RSD_UE_CLN_RAT', 'RC_M1_SHC_WP_UE_CLN_RAT', 'RC_M1_SHC_FLP_UE_CLN_RAT'
+        'M12_MAL_1020_RAT', 'M12_MAL_30_RAT', 'M12_MAL_40_RAT', 'M12_MAL_50_RAT', 'M12_MAL_60_RAT',
+        'M12_FME_1020_RAT', 'M12_FME_30_RAT', 'M12_FME_40_RAT', 'M12_FME_50_RAT', 'M12_FME_60_RAT'
     ]
 
     for col in customer_mix_cols:
         if col not in df.columns: continue
-        # 각 구성 비율의 1개월, 3개월 전 대비 변화량
-        df[f'{col}_diff_1m'] = df.groupby('ENCODED_MCT')[col].diff(periods=1)
-        df[f'{col}_diff_3m'] = df.groupby('ENCODED_MCT')[col].diff(periods=3)
-        # 각 구성 비율의 최근 3개월간 변동성 (표준편차)
-        df[f'{col}_rolling_std_3m'] = df.groupby('ENCODED_MCT')[col].shift(1).rolling(3).std().reset_index(0,drop=True)
+        # 각 구성 비율의 n개월 전 대비 변화량, 표준편차
+        for n in [1, 3, 6]:
+            df[f'{col}_diff_{n}m'] = df.groupby('ENCODED_MCT')[col].diff(periods=n)
+        for n in [3, 6]:
+            df[f'{col}_rolling_std_{n}m'] = df.groupby('ENCODED_MCT')[col].shift(1).rolling(n).std()
 
-
-    # 6. 동종 그룹 벤치마킹 (상대적 성과)
-    # 먼저 각 가맹점의 1개월 매출 성장률을 계산합니다.
-    score_col = 'RC_M1_SAA_score'
-    if score_col in df.columns:
-        # 지역(시군구) 내 동종 그룹의 평균 매출 성장률 대비
-        df['sigungu_avg_score'] = df.groupby(['MCT_SIGUNGU_NM', 'TA_YM'])[score_col].transform('mean')
-        df['peer_score_perf_sigungu'] = df[score_col] - df['sigungu_avg_score']
-
-        # 업종 내 동종 그룹의 평균 매출 성장률 대비
-        df['industry_avg_score'] = df.groupby(['HPSN_MCT_ZCD_NM', 'TA_YM'])[score_col].transform('mean')
-        df['peer_score_perf_industry'] = df[score_col] - df['industry_avg_score']
-
-    # 7. 무한대 값 처리
+    # 5. 무한대 값 처리
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
     print(f"피처 엔지니어링 완료. 총 {df.shape[1]}개의 피처 생성.")

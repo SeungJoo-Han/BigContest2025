@@ -19,26 +19,27 @@ def main():
         PATH_CUSTOMER = os.path.join(DATA_DIR, 'big_data_set3_f.csv')
         PROCESSED_DATA_PATH = os.path.join(DATA_DIR, 'labeled_data.csv')
 
-        if os.path.exists(PROCESSED_DATA_PATH):
-            print(f"\n전처리 완료된 데이터 '{PROCESSED_DATA_PATH}'를 로드합니다.")
-            final_df = pd.read_csv(PROCESSED_DATA_PATH, parse_dates=['TA_YM', 'ARE_D', 'MCT_ME_D'])
-        else:
-            print("\n데이터 전처리 및 라벨링을 새로 시작합니다.")
-            abt = load_and_merge_data(PATH_INFO, PATH_SALES, PATH_CUSTOMER)
-            featured_df = create_features(abt)
-            labeled_df = create_target_label(featured_df)
-            final_df = labeled_df.copy()
-            final_df.to_csv(PROCESSED_DATA_PATH, index=False)
-            print(f"전처리 및 라벨링 완료된 데이터를 '{PROCESSED_DATA_PATH}'에 저장했습니다.")
+        print("\n데이터 전처리 및 라벨링을 새로 시작합니다.")
+        abt = load_and_merge_data(PATH_INFO, PATH_SALES, PATH_CUSTOMER)
+        featured_df = create_features(abt)
+        labeled_df = create_target_label(featured_df)
+        final_df = labeled_df.copy()
+        final_df.to_csv(PROCESSED_DATA_PATH, index=False, encoding='utf-8-sig')
+        print(f"전처리 및 라벨링 완료된 데이터를 '{PROCESSED_DATA_PATH}'에 저장했습니다.")
         
         final_df.sort_values(by=['ENCODED_MCT', 'TA_YM'], inplace=True)
         final_df.reset_index(drop=True, inplace=True)
 
         TARGET = 'is_at_risk'
         features_to_exclude = [
-            TARGET, 'ENCODED_MCT', 'MCT_BSE_AR', 'MCT_NM', 'MCT_BRD_NUM', 'ARE_D', 'MCT_ME_D', 
-            'TA_YM', 'MCT_OPE_MS_CN', 'RC_M1_SAA', 'RC_M1_TO_UE_CT', 
+            TARGET, 'ENCODED_MCT', 'MCT_BSE_AR', 'MCT_NM', 'MCT_BRD_NUM', 'MCT_SIGUNGU_NM', 
+            'HPSN_MCT_ZCD_NM', 'HPSN_MCT_BZN_CD_NM', 'ARE_D', 'MCT_ME_D', 'TA_YM', 
+            'MCT_OPE_MS_CN', 'RC_M1_SAA', 'RC_M1_TO_UE_CT', 
             'RC_M1_UE_CUS_CN', 'RC_M1_AV_NP_AT', 'APV_CE_RAT',
+
+            'business_age',
+            'M12_MAL_1020_RAT', 'M12_MAL_30_RAT', 'M12_MAL_40_RAT', 'M12_MAL_50_RAT', 'M12_MAL_60_RAT',
+            'M12_FME_1020_RAT', 'M12_FME_30_RAT', 'M12_FME_40_RAT', 'M12_FME_50_RAT', 'M12_FME_60_RAT'
         ]
         features = [col for col in final_df.columns if col not in features_to_exclude]
         
@@ -48,6 +49,11 @@ def main():
         print(f"사용할 피처 개수: {len(features)}개")  
 
         model, scores = train_and_evaluate(X, y)
+
+        print(f"평균 AUPRC: {np.mean(scores['auprc']):.4f} ± {np.std(scores['auprc']):.4f}")
+        print(f"평균 F1 Score: {np.mean(scores['f1']):.4f} ± {np.std(scores['f1']):.4f}")
+        print(f"평균 RECALL: {np.mean(scores['recall']):.4f} ± {np.std(scores['recall']):.4f}")
+        print(f"평균 PRECISION: {np.mean(scores['precision']):.4f} ± {np.std(scores['precision']):.4f}")
 
         print("\n모델 해석을 시작합니다.")
         plot_feature_importance(model, features) # LightGBM 기본 피처 중요도
