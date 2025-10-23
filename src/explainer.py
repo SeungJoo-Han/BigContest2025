@@ -7,6 +7,7 @@ def set_korean_font():
     """Matplotlib에서 한글 폰트를 설정합니다."""
     try:
         plt.rcParams['font.family'] = 'Malgun Gothic'
+        plt.rcParams['axes.unicode_minus'] = False
     except:
         print("Malgun Gothic font not found. Please install it for Korean characters.")
 
@@ -29,14 +30,14 @@ def explain_model_globally(model, X, feature_names, sample_size=1000):
         print(f"데이터가 크므로 {sample_size}개의 샘플로 SHAP 값을 계산합니다.")
         X_sample = shap.sample(X, sample_size, random_state=42)
     else:
-        X_sample = X
+        X_sample = X.copy()
 
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X_sample)
 
     # SHAP 요약 플롯 (Beeswarm): 각 피처가 예측에 미치는 영향의 분포를 보여줍니다.
     plt.figure()
-    shap.summary_plot(shap_values[1], X_sample, feature_names=feature_names, show=False)
+    shap.summary_plot(shap_values, X_sample, feature_names=feature_names, plot_type='dot', show=False)
     plt.title('SHAP 요약 플롯 (전역 설명)')
     plt.tight_layout()
     plt.savefig('shap_summary_plot.png')
@@ -45,7 +46,7 @@ def explain_model_globally(model, X, feature_names, sample_size=1000):
 
     # SHAP 중요도 플롯 (Bar): 피처의 평균적인 영향력 크기를 보여줍니다.
     plt.figure()
-    shap.summary_plot(shap_values[1], X_sample, feature_names=feature_names, plot_type="bar", show=False)
+    shap.summary_plot(shap_values, X_sample, feature_names=feature_names, plot_type="bar", show=False)
     plt.title('SHAP 피처 중요도 (전역)')
     plt.tight_layout()
     plt.savefig('shap_importance_bar_plot.png')
@@ -54,7 +55,7 @@ def explain_model_globally(model, X, feature_names, sample_size=1000):
     
     return explainer, shap_values
 
-def explain_single_prediction(explainer, X_instance):
+def explain_single_prediction(model, X_instance, feature_names):
     """
     단일 예측에 대한 국소적 설명을 SHAP Waterfall 플롯으로 시각화합니다.
     '왜' 특정 가맹점이 위험하다고 예측되었는지 설명합니다.
@@ -63,25 +64,46 @@ def explain_single_prediction(explainer, X_instance):
         explainer: SHAP TreeExplainer 객체
         X_instance (pd.Series): 설명할 단일 데이터 샘플 (가맹점의 특정 월 데이터)
     """
-    print(f"\n단일 예측에 대한 국소 설명 생성 중 (인덱스: {X_instance.name})...")
+    print(f"\n단일 예측에 대한 국소 설명 생성 중...")
     set_korean_font()
     
-    shap_values_instance = explainer.shap_values(X_instance)
-    # class 1 (위험)에 대한 SHAP 값과 기대값을 사용합니다.
-    expected_value = explainer.expected_value[1] 
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X_instance)
+
+    ev = explainer.expected_value
+    expected_value_for_plot = ev
+    if isinstance(ev, (list, tuple, np.ndarray)) and len(ev) > 1:
+        expected_value_for_plot = ev[1]
+    elif isinstance(ev, (list, tuple, np.ndarray)) and len(ev) == 1:
+        expected_value_for_plot = ev[0] 
+    
+    shap_values_2d_array = None
+    if isinstance(shap_values, list):
+        if len(shap_values) > 1:
+            shap_values_2d_array = shap_values[1]
+        elif len(shap_values) == 1:
+            shap_values_2d_array = shap_values[0]
+        else:
+            raise ValueError("SHAP이 빈 리스트를 반환했습니다.")
+    else:
+        shap_values_2d_array = shap_values
+
+    shap_values_sample = shap_values_2d_array[0]
     
     plt.figure()
     # SHAP Waterfall 플롯: 기본 확률에서 시작하여 각 피처가 확률을 어떻게 올리고 내렸는지 보여줍니다.
-    shap.waterfall_plot(shap.Explanation(values=shap_values_instance[1],
-                                          base_values=expected_value,
-                                          data=X_instance.values,
-                                          feature_names=X_instance.index),
-                                          show=False)
-    plt.title(f'SHAP Waterfall Plot (Index: {X_instance.name})')
+    shap.waterfall_plot(shap.Explanation(
+        values=shap_values_sample,
+        base_values=expected_value_for_plot,
+        data=X_instance.values[0],
+        feature_names=feature_names),
+        show=False)
+    plt.title("단일 예측 분석 (무엇이 위험도를 높였는가?)")
     plt.tight_layout()
-    plt.savefig(f'shap_waterfall_plot_idx_{X_instance.name}.png')
+    instance_index = X_instance.index[0]
+    plt.savefig(f'shap_waterfall_plot_idx_{instance_index}.png')
     plt.close()
-    print(f"SHAP Waterfall Plot 저장 완료: shap_waterfall_plot_idx_{X_instance.name}.png")
+    print(f"SHAP Waterfall Plot 저장 완료: shap_waterfall_plot_idx_{instance_index}.png")
 
 
 if __name__ == '__main__':
@@ -92,23 +114,21 @@ if __name__ == '__main__':
         from model_trainer import train_and_evaluate
         
         # --- 전체 파이프라인 실행 ---
-        PATH_INFO = '../data/dataset1_info.csv'
-        PATH_SALES = '../data/dataset2_sales.csv'
-        PATH_CUSTOMER = '../data/dataset3_customer.csv'
+        PATH_INFO = '../BigContest2025-main/data/big_data_set1_f.csv'
+        PATH_SALES = '../BigContest2025-main/data/big_data_set2_f.csv'
+        PATH_CUSTOMER = '../BigContest2025-main/data/big_data_set3_f.csv'
         
         abt = load_and_merge_data(PATH_INFO, PATH_SALES, PATH_CUSTOMER)
         featured_df = create_features(abt)
         labeled_df = create_target_label(featured_df)
 
         final_df = labeled_df.dropna(subset=['is_at_risk'])
-        final_df = final_df.fillna(0)
 
         TARGET = 'is_at_risk'
         features_to_exclude = [
             TARGET, 'ENCODED_MCT', 'TA_YM', 'OPEN_DT', 'CLOSE_DT',
             'SIGUNGU_CD', 'IND_CD'
-        ]
-        features_to_exclude.extend(final_df.select_dtypes(include=['object', 'datetime64[ns]']).columns.tolist())
+        ]   
         features = [col for col in final_df.columns if col not in features_to_exclude]
         
         X = final_df[features]
