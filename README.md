@@ -8,6 +8,7 @@
 
 📂 프로젝트 구조
 
+```
 .
 ├── data/
 │   ├── big_data_set1_f.csv       (가맹점 정보)
@@ -23,7 +24,7 @@
 ├── labeling.py                   (3. 위기 정의 및 타겟 생성 모듈)
 ├── model_trainer.py              (4. 모델 학습 및 평가 모듈)
 └── explainer.py                  (5. SHAP 기반 모델 해석 모듈)
-
+```
 
 ✨ 핵심 기능 및 분석 로직
 
