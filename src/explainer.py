@@ -11,7 +11,7 @@ def set_korean_font():
     except:
         print("Malgun Gothic font not found. Please install it for Korean characters.")
 
-def explain_model_globally(model, X, feature_names, sample_size=1000):
+def explain_model_globally(model, X, feature_names, sample_size=10000):
     """
     SHAP을 사용하여 모델의 전역적 특성 중요도를 시각화합니다.
     대용량 데이터의 경우 샘플링하여 연산 속도를 높입니다.

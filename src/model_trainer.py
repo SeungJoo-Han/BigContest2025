@@ -148,9 +148,6 @@ if __name__ == '__main__':
         features_to_exclude = [
             TARGET, 'ENCODED_MCT', 'MCT_BSE_AR', 'MCT_NM', 'MCT_BRD_NUM', 'MCT_SIGUNGU_NM', 
             'HPSN_MCT_ZCD_NM', 'HPSN_MCT_BZN_CD_NM', 'ARE_D', 'MCT_ME_D', 
-
-            'sigungu_avg_score', 'peer_score_perf_sigungu', 'industry_avg_score', 'peer_score_perf_industry',
-
             'TA_YM', 
             'MCT_OPE_MS_CN', 'RC_M1_SAA', 'RC_M1_TO_UE_CT', 
             'RC_M1_UE_CUS_CN', 'RC_M1_AV_NP_AT', 'APV_CE_RAT',
