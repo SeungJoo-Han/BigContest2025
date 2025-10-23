@@ -58,9 +58,9 @@ def create_features(df):
     for col in customer_mix_cols:
         if col not in df.columns: continue
         # 각 구성 비율의 n개월 전 대비 변화량, 표준편차
-        for n in [1, 3, 6]:
+        for n in [1, 3, 6, 12]:
             df[f'{col}_diff_{n}m'] = df.groupby('ENCODED_MCT')[col].diff(periods=n)
-        for n in [3, 6]:
+        for n in [3, 6, 12]:
             df[f'{col}_rolling_std_{n}m'] = df.groupby('ENCODED_MCT')[col].shift(1).rolling(n).std()
 
     # 5. 무한대 값 처리
