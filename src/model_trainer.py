@@ -38,7 +38,7 @@ def plot_feature_importance(model, feature_names, top_n=20):
     plt.tight_layout()
     plt.show()
 
-def train_and_evaluate(X, y, n_splits=5):
+def train_and_evaluate(X, y, n_splits=4):
     """
 사용하여 평가합니다.
     (기존 코드의 오류를 모두 수정한 최종 버전)
@@ -56,6 +56,10 @@ def train_and_evaluate(X, y, n_splits=5):
     scale_pos_weight = y.value_counts()[0] / y.value_counts()[1]
     print(f"\n'scale_pos_weight'가 {scale_pos_weight:.2f}로 설정되었습니다.")
 
+    # Recall을 높이기 위해 가중치 수동 증폭
+    custom_scale_pos_weight = scale_pos_weight * 2.5 
+    print(f"'scale_pos_weight' (Custom Applied): {custom_scale_pos_weight:.2f}")
+
     # 시계열 교차 검증 설정
     tscv = TimeSeriesSplit(n_splits=n_splits)
     # 점수를 저장할 딕셔너리 초기화
@@ -68,23 +72,18 @@ def train_and_evaluate(X, y, n_splits=5):
         'boosting_type': 'gbdt',
         'n_estimators': 2000,          # 학습 횟수를 충분히 늘려 작은 학습률로도 최적점에 도달하도록 함
         'learning_rate': 0.02,         # 학습률을 더 낮춰 매우 신중하게 학습 진행
-        'num_leaves': 40,              # 트리의 복잡도 증가 (기존 40 -> 60)
-        'max_depth': 7,               # 트리의 최대 깊이를 좀 더 허용하여 세밀한 패턴 학습
-        'min_child_samples': 30,       # 과적합 방지를 위해 리프 노드 샘플 수 조절
+        'num_leaves': 31,              # 트리의 복잡도 증가
+        'max_depth': 6,               # 트리의 최대 깊이를 좀 더 허용하여 세밀한 패턴 학습
+        'min_child_samples': 50,       # 과적합 방지를 위해 리프 노드 샘플 수 조절
         'subsample': 0.8,              # 데이터 샘플링 (과적합 방지)
         'colsample_bytree': 0.8,       # 피처 샘플링 (과적합 방지)
         'random_state': 42,
         'n_jobs': -1,
         'verbose': -1,
-        'reg_alpha': 0.1,              # L1 정규화
-        'reg_lambda': 0.1,             # L2 정규화
-        'scale_pos_weight': scale_pos_weight, # 불균형 데이터 처리
-
-
-        # --- DART 전용 파라미터 ---
-        #'drop_rate': 0.1,              # 각 반복에서 몇 %의 트리를 버릴지 결정
-        #'skip_drop': 0.5,              # 50%의 확률로는 drop을 건너뛰어 속도와 안정성 확보
-        #'max_drop': 50,                # 한 번에 버릴 수 있는 최대 트리 수    
+        'reg_alpha': 0.5,              # L1 정규화
+        'reg_lambda': 0.5,             # L2 정규화
+        'min_gain_to_split': 0.1,      # 의미 없는 분할 방지 (노이즈/NaN에 강해짐)
+        'scale_pos_weight': custom_scale_pos_weight, # 불균형 데이터 처리
         }
     
     for fold, (train_index, val_index) in enumerate(tscv.split(X)):
@@ -95,6 +94,7 @@ def train_and_evaluate(X, y, n_splits=5):
         
         model.fit(X_train, y_train,
                   eval_set=[(X_val, y_val)],
+                  callbacks=[lgb.early_stopping(stopping_rounds=100, verbose=False)]
                   )
 
         preds = model.predict(X_val)
@@ -106,22 +106,13 @@ def train_and_evaluate(X, y, n_splits=5):
         scores['precision'].append(precision_score(y_val, preds))
         
         print(f"Fold {fold+1} AUPRC: {scores['auprc'][-1]:.4f}")
+        print(f"Fold {fold+1} F1 Score: {scores['f1'][-1]:.4f}")
+        print(f"Fold {fold+1} RECALL: {scores['recall'][-1]:.4f}")
+        print(f"Fold {fold+1} PRECISION: {scores['precision'][-1]:.4f}\n")
     
     print("\n===== 전체 데이터로 최종 모델 학습 시작 =====")
     final_model = lgb.LGBMClassifier(**params)
     final_model.fit(X, y)
-    preds = final_model.predict(X)
-    pred_proba = final_model.predict_proba(X)[:, 1]
-    scores['auprc'].append(average_precision_score(y, pred_proba))
-    scores['f1'].append(f1_score(y, preds))
-    scores['recall'].append(recall_score(y, preds))
-    scores['precision'].append(precision_score(y, preds))
-
-    print("===== 최종 모델 학습 완료 =====")
-    print(f"최종 모델 AUPRC: {scores['auprc'][-1]:.4f}")
-    print(f"최종 모델 F1 Score: {scores['f1'][-1]:.4f}")
-    print(f"최종 모델 RECALL: {scores['recall'][-1]:.4f}")
-    print(f"최종 모델 PRECISION: {scores['precision'][-1]:.4f}")
     
     # 모델 저장
     MODEL_OUTPUT_DIR = '../BigContest2025-main/model'

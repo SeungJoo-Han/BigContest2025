@@ -50,18 +50,19 @@ def create_features(df):
     # 4. 고객 행동 변화 지표
     customer_mix_cols = [
         'MCT_UE_CLN_REU_RAT', 'MCT_UE_CLN_NEW_RAT',
-        'RC_M1_SHC_RSD_UE_CLN_RAT', 'RC_M1_SHC_WP_UE_CLN_RAT', 'RC_M1_SHC_FLP_UE_CLN_RAT'
+        'RC_M1_SHC_RSD_UE_CLN_RAT', 'RC_M1_SHC_WP_UE_CLN_RAT', 'RC_M1_SHC_FLP_UE_CLN_RAT', 
         'M12_MAL_1020_RAT', 'M12_MAL_30_RAT', 'M12_MAL_40_RAT', 'M12_MAL_50_RAT', 'M12_MAL_60_RAT',
-        'M12_FME_1020_RAT', 'M12_FME_30_RAT', 'M12_FME_40_RAT', 'M12_FME_50_RAT', 'M12_FME_60_RAT'
+        'M12_FME_1020_RAT', 'M12_FME_30_RAT', 'M12_FME_40_RAT', 'M12_FME_50_RAT', 'M12_FME_60_RAT',
         'DLV_SAA_RAT'
     ]
 
     for col in customer_mix_cols:
         if col not in df.columns: continue
-        # 각 구성 비율의 n개월 전 대비 변화량, 표준편차
+        # 각 구성 비율의 n개월 전 대비 변화량, 평균, 표준편차
         for n in [1, 3, 6, 12]:
             df[f'{col}_diff_{n}m'] = df.groupby('ENCODED_MCT')[col].diff(periods=n)
         for n in [3, 6, 12]:
+            df[f'{col}_rolling_mean_{n}m'] = df.groupby('ENCODED_MCT')[col].shift(1).rolling(n).mean()
             df[f'{col}_rolling_std_{n}m'] = df.groupby('ENCODED_MCT')[col].shift(1).rolling(n).std()
 
     # 5. 무한대 값 처리
@@ -84,9 +85,6 @@ if __name__ == '__main__':
         
         print("\n피처 생성 후 데이터프레임 정보:")
         featured_df.info()
-        
-        print("\n생성된 피처 샘플 (성장률):")
-        print(featured_df.filter(like='_growth_').head())
 
         # 생성된 데이터프레임을 CSV 파일로 저장
         output_dir = '../BigContest2025-main/data'

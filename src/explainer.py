@@ -146,8 +146,8 @@ if __name__ == '__main__':
             # 위험 확률이 가장 높은 샘플의 인덱스를 찾습니다.
             high_risk_idx = np.argmax(y_pred_proba)
             instance_to_explain = X.iloc[high_risk_idx]
-            
-            explain_single_prediction(explainer, instance_to_explain)
+
+            explain_single_prediction(explainer, instance_to_explain, features)
         else:
             print("타겟 변수에 클래스가 하나뿐이어서 모델 설명 로직을 실행할 수 없습니다.")
 
