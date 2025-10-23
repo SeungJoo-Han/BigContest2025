@@ -110,7 +110,18 @@ def train_and_evaluate(X, y, n_splits=5):
     print("\n===== 전체 데이터로 최종 모델 학습 시작 =====")
     final_model = lgb.LGBMClassifier(**params)
     final_model.fit(X, y)
+    preds = final_model.predict(X)
+    pred_proba = final_model.predict_proba(X)[:, 1]
+    scores['auprc'].append(average_precision_score(y, pred_proba))
+    scores['f1'].append(f1_score(y, preds))
+    scores['recall'].append(recall_score(y, preds))
+    scores['precision'].append(precision_score(y, preds))
+
     print("===== 최종 모델 학습 완료 =====")
+    print(f"최종 모델 AUPRC: {scores['auprc'][-1]:.4f}")
+    print(f"최종 모델 F1 Score: {scores['f1'][-1]:.4f}")
+    print(f"최종 모델 RECALL: {scores['recall'][-1]:.4f}")
+    print(f"최종 모델 PRECISION: {scores['precision'][-1]:.4f}")
     
     # 모델 저장
     MODEL_OUTPUT_DIR = '../BigContest2025-main/model'

@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 
-def create_target_label(df, look_ahead_start=1, look_ahead_end=12, look_ahead_window=3):
+def create_target_label(df, look_ahead_start=1, look_ahead_end=12, look_ahead_window=3, rolling_window_size=12, n_std=2.0):
     """
     복합적인 위기 정의에 따라 타겟 변수(is_at_risk)를 생성합니다.
     위기 발생 12개월 전 시점을 위험(1)으로 레이블링합니다.
@@ -16,50 +16,67 @@ def create_target_label(df, look_ahead_start=1, look_ahead_end=12, look_ahead_wi
         pd.DataFrame: 'is_at_risk' 컬럼이 추가된 데이터프레임
     """
     print("타겟 레이블링 시작...")
-
-    perf_cols_config = {
-        'M1_SME_RY_SAA_RAT': 50,
-        'M1_SME_RY_CNT_RAT': 50, 
-        'M12_SME_RY_SAA_PCE_RT': 20,
-        'M12_SME_BZN_SAA_PCE_RT': 20
-    }
+    
+    # --- 1. 위기 정의 컬럼 설정 ---
+    # 1-1. 값이 '낮을수록' 위기인 컬럼들
+    lower_is_worse_cols = [
+        'M1_SME_RY_SAA_RAT', 
+        'M1_SME_RY_CNT_RAT'
+    ]
+    
+    # 1-2. 값이 '높을수록' 위기인 컬럼들
+    higher_is_worse_cols = [
+        'M12_SME_RY_SAA_PCE_RT', 
+        'M12_SME_BZN_SAA_PCE_RT'
+    ]
 
     df = df.sort_values(by=['ENCODED_MCT', 'TA_YM']).reset_index(drop=True)
 
-    # 1. 폐업일이 기록된 (NaT가 아닌) 행들만 대상으로 마스크를 생성합니다.
+    # --- 2. 폐업 기반 위기 정의 (기존과 동일) ---
     mask_has_closure_date = df['MCT_ME_D'].notna()
     df['is_at_risk_closure'] = 0
-
-    # 2. 각 행의 기준년월(TA_YM)이 폐업일(MCT_ME_D)의 범위에 속하는지 확인합니다.
     start_date_check = df['TA_YM'] >= (df['MCT_ME_D'] - pd.DateOffset(months=look_ahead_end))
     end_date_check = df['TA_YM'] < (df['MCT_ME_D'] - pd.DateOffset(months=look_ahead_start - 1))
-    
-    # 3. 폐업일이 존재하고, 날짜 범위가 맞는 모든 행을 최종 대상(final_mask)으로 선정합니다.
     final_mask = mask_has_closure_date & start_date_check & end_date_check
     df.loc[final_mask, 'is_at_risk_closure'] = 1
 
 
-    # 4. 성과 기반 위기 정의. 각 성과 지표별로 전월 대비 급격한 악화가 있는지 확인합니다.
+    # --- 3. 성과 기반 위기 정의 (동적 임계치로 수정) ---
     grouped = df.groupby('ENCODED_MCT')
     
     is_at_risk_perf_combined = pd.Series(False, index=df.index)
     cleanup_cols = ['is_at_risk_closure']
 
-    for col, drop_rate_threshold in perf_cols_config.items():
-        prev_col = f'{col}_prev'
-        drop_pct_col = f'{col}_drop_pct'
+    # 3-1. '낮을수록' 위기인 컬럼들 처리
+    for col in lower_is_worse_cols:
+        if col not in df.columns: continue
         
-        df[prev_col] = grouped[col].shift(1)
-        if col in ['M1_SME_RY_SAA_RAT', 'M1_SME_RY_CNT_RAT']:
-            df[drop_pct_col] = (df[prev_col] - df[col])
-        else:
-            df[drop_pct_col] = (df[col] - df[prev_col])
-        df[drop_pct_col] = df[drop_pct_col].replace([np.inf, -np.inf], np.nan).fillna(0)
-        is_crisis = (df[drop_pct_col] >= drop_rate_threshold)
+        rolling_stats = grouped[col].shift(1).rolling(rolling_window_size, min_periods=3)
+        rolling_mean = rolling_stats.mean()
+        rolling_std = rolling_stats.std().fillna(0) 
         
+        # 동적 임계치 (평균 - N * 표준편차)
+        threshold_low = rolling_mean - (n_std * rolling_std)
+        
+        # 현재 값이 동적 임계치보다 낮으면 위기
+        is_crisis = (df[col] < threshold_low)
         is_at_risk_perf_combined = is_at_risk_perf_combined | is_crisis
+
+    # 3-2. '높을수록' 위기인 컬럼 처리
+    for col in higher_is_worse_cols:
+        if col not in df.columns: continue
+
+        rolling_stats = grouped[col].shift(1).rolling(rolling_window_size, min_periods=3)
+        rolling_mean = rolling_stats.mean()
+        rolling_std = rolling_stats.std().fillna(0)
         
-        cleanup_cols.extend([prev_col, drop_pct_col])
+        # 동적 임계치 (평균 + N * 표준편차)
+        threshold_high = rolling_mean + (n_std * rolling_std)
+        
+        # 현재 값이 동적 임계치보다 높으면 위기
+        is_crisis = (df[col] > threshold_high)
+        is_at_risk_perf_combined = is_at_risk_perf_combined | is_crisis
+
 
     df['is_perf_crisis_EVENT'] = is_at_risk_perf_combined.astype(int)
 
@@ -82,6 +99,8 @@ def create_target_label(df, look_ahead_start=1, look_ahead_end=12, look_ahead_wi
         print(f"위험 클래스(1) 비율: {df['is_at_risk'].value_counts(normalize=True)[1]:.4f}")
     else:
         print("위험 클래스(1)가 데이터에 존재하지 않습니다. 위기 정의나 기간 설정을 확인해보세요.")
+    
+    df = df.sort_values(by=['TA_YM', 'ENCODED_MCT']).reset_index(drop=True)
 
     return df
 

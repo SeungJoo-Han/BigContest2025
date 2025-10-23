@@ -26,9 +26,7 @@ def main():
         final_df = labeled_df.copy()
         final_df.to_csv(PROCESSED_DATA_PATH, index=False, encoding='utf-8-sig')
         print(f"전처리 및 라벨링 완료된 데이터를 '{PROCESSED_DATA_PATH}'에 저장했습니다.")
-        
-        final_df.sort_values(by=['ENCODED_MCT', 'TA_YM'], inplace=True)
-        final_df.reset_index(drop=True, inplace=True)
+    
 
         TARGET = 'is_at_risk'
         features_to_exclude = [
