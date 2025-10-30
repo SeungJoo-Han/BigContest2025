@@ -61,8 +61,9 @@ def explain_single_prediction(model, X_instance, feature_names):
     '왜' 특정 가맹점이 위험하다고 예측되었는지 설명합니다.
 
     Args:
-        explainer: SHAP TreeExplainer 객체
+        model: 학습된 LightGBM 모델
         X_instance (pd.Series): 설명할 단일 데이터 샘플 (가맹점의 특정 월 데이터)
+        feature_names (list): 피처 이름 목록
     """
     print(f"\n단일 예측에 대한 국소 설명 생성 중...")
     set_korean_font()
